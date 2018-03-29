@@ -5,7 +5,7 @@ import datetime
 import argparse
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import Queue
+import queue
 
 
 class CVMotionCamrea():
@@ -16,7 +16,7 @@ class CVMotionCamrea():
         self.dev_mode = dev_mode
         self.camera = PiCamera()
         self.camera_output = PiRGBArray(self.camera)
-        self.prev_frame = self._preprocess_image(self._take_image())
+        self.prev_frame = self._bw_process_image(self._take_image(), self.pixel_sample_size)
 
     def _dev_print(self, msg):
         if self.dev_mode:
@@ -51,11 +51,12 @@ class CVMotionCamrea():
                 if cv2.contourArea(c) > self.pixel_delta_threshold:
                     # Save Image
                     self._dev_print("Motion Detected!")
-                    image_name = "CVImage_{}.jpg".format(datetime.datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
+                    image_name = "CVImage_{}.jpg".format(datetime.datetime.now().strftime("%m-%d-%Y_%H-%M-%S.%f"))
                     full_path = os.path.join(self.image_path, image_name)
                     cv2.imwrite(full_path, image)
                     image_path_queue.put(full_path)
                     self._dev_print("Path of file is: {}".format(full_path))
+                    break
 
             # Show image diff if in dev mode
             if self.dev_mode:
@@ -69,7 +70,9 @@ if __name__ == "__main__":
     arg_parser.add_argument("image_path", help="Path where images taken will be stored")
 
     args = arg_parser.parse_args()
-    motion_cam = CVMotionCamrea(args.image_path, 100, dev_mode=True)
+    motion_cam = CVMotionCamrea(args.image_path, 75, dev_mode=True)
+    q = queue.Queue()
+    motion_cam.run(q)
 
 
 
