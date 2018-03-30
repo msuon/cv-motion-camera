@@ -20,6 +20,7 @@ class CVMotionCamrea():
         self.pixel_delta_threshold = pixel_delta_threshold
         self.dev_mode = dev_mode
         self.camera = PiCamera()
+        self.camera.rotation = 180
         self.camera_output = PiRGBArray(self.camera)
         self.prev_frame = self._bw_process_image(self._take_image(), self.pixel_sample_size)
 
@@ -45,7 +46,7 @@ class CVMotionCamrea():
             frame_diff = cv2.absdiff(self.prev_frame, frame)
             self.prev_frame = frame
 
-            processed_diff = cv2.threshold(frame_diff,100, 255, cv2.THRESH_BINARY)[1]
+            processed_diff = cv2.threshold(frame_diff,75, 255, cv2.THRESH_BINARY)[1]
             processed_diff = cv2.dilate(processed_diff, None, iterations=2)
             (_,contours,_) = cv2.findContours(processed_diff.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -62,6 +63,7 @@ class CVMotionCamrea():
                     full_path = os.path.join(self.image_path, image_name)
                     cv2.imwrite(full_path, image)
                     image_path_queue.put(full_path)
+
                     self._dev_print("Path of file is: {}".format(full_path))
                     break
 

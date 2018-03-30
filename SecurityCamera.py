@@ -9,7 +9,7 @@ from time import sleep
 from threading import Thread
 from motion_camera import CVMotionCamrea
 
-log_path = "./logs/security_camera.log"
+log_path = "/home/msuon/Projects/motion_camera/logs/security_camera.log"
 # class upload_thread(Thread):
 #     def __init__(self, img_path_q):
 #         Thread.__init__(self)
@@ -29,8 +29,12 @@ def upload_thread(image_path, image_q):
         if not image_q.empty():
             i = image_q.get()
             logging.info("Uploading image from path: {}".format(i))
-            GDrive.add_file(i, "PIRSecurity_Pictures")
+            GDrive.add_file(i, "MotionCameraPictures")
             logging.info("Upload {} complete!".format(i))
+            logging.debug("Removing Pictures...")
+            subprocess.call(["rm {}".format(i)], shell=True)
+
+            sleep(.25)
 
 
 def camera_thread(img_path, img_q):
@@ -42,7 +46,7 @@ if __name__ == "__main__":
 #     arg_parser.add_argument("image_path", help="Path where images taken will be stored")
 #     args = arg_parser.parse_args()
     
-    image_path = "./images"
+    image_path = "/home/msuon/Projects/motion_camera/images"
     # Initialize Logging
     logging.basicConfig(filename=log_path, level=logging.DEBUG, format='[%(asctime)s]%(levelname)s: %(message)s')
     logging.debug("Starting Security Camera...")
@@ -60,11 +64,11 @@ if __name__ == "__main__":
     pidfile = "/tmp/SecurityCamera.pid"
 
     # If path exists program is already running otherwise write pid file
-    # if os.path.isfile(pidfile):
-    #     logging.info("Program already running exiting this process...")
-    #     sys.exit()
-    # with open(pidfile, "w") as f:
-    #     f.write(pid)
+    if os.path.isfile(pidfile):
+        logging.info("Program already running exiting this process...")
+        sys.exit()
+    with open(pidfile, "w") as f:
+        f.write(pid)
 
     logging.debug("GDrive Thread Starting...")
     # Create GDrive thread
@@ -82,7 +86,7 @@ if __name__ == "__main__":
         t.join()
 
     logging.debug("Removing PID File...")
-    # subprocess.call(["rm {}".format(pidfile)], shell=True)
+    subprocess.call(["rm {}".format(pidfile)], shell=True)
     logging.warning("Program exiting...")
 
     # # Main Loop. Motion cam will run for ever motion_cam = CVMotionCamrea(args.image_path, 100, dev_mode=True)
