@@ -1,15 +1,20 @@
 import os
 import cv2
+import queue
 import imutils
+import logging
 import datetime
 import argparse
+from threading import Thread
 from picamera import PiCamera
 from picamera.array import PiRGBArray
-import queue
 
+log_path = "./logs/motion_camera.log"
 
 class CVMotionCamrea():
     def __init__(self, image_path, pixel_delta_threshold,pixel_sample_size=500, dev_mode=False):
+        logging.basicConfig(filename=log_path, level=logging.DEBUG, format='[%(asctime)s]%(levelname)s: %(message)s')
+        logging.debug("Initializing Motion Camera...")
         self.image_path = image_path
         self.pixel_sample_size = pixel_sample_size
         self.pixel_delta_threshold = pixel_delta_threshold
@@ -33,6 +38,7 @@ class CVMotionCamrea():
         return self.camera_output.array
 
     def run(self, image_path_queue):
+        logging.info("Starting Motion Camera...")
         while True:
             image = self._take_image()
             frame = self._bw_process_image(image, self.pixel_sample_size)
@@ -52,6 +58,7 @@ class CVMotionCamrea():
                     # Save Image
                     self._dev_print("Motion Detected!")
                     image_name = "CVImage_{}.jpg".format(datetime.datetime.now().strftime("%m-%d-%Y_%H-%M-%S.%f"))
+                    logging.debug("Motion Detected! Image at: {}".format(image_name))
                     full_path = os.path.join(self.image_path, image_name)
                     cv2.imwrite(full_path, image)
                     image_path_queue.put(full_path)
@@ -64,15 +71,26 @@ class CVMotionCamrea():
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
+def run_camrea_thread(image_path, image_q):
+    c = CVMotionCamrea(image_path, 75, dev_mode=False)
+    c.run(image_q)
+
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("image_path", help="Path where images taken will be stored")
 
     args = arg_parser.parse_args()
-    motion_cam = CVMotionCamrea(args.image_path, 75, dev_mode=True)
-    q = queue.Queue()
-    motion_cam.run(q)
+
+    img_q = queue.Queue()
+    t = Thread(target=run_camrea_thread, args=(args.image_path, img_q))
+    t.start()
+    while True:
+        if not img_q.empty():
+            path = img_q.get()
+            print("Queue has path: {}".format(path))
+
+
 
 
 
