@@ -4,30 +4,33 @@ import queue
 import logging
 import GDrive
 import argparse
+import traceback
 import subprocess
 from time import sleep
 from threading import Thread
 from motion_camera import CVMotionCamrea
 
 log_path = "/home/msuon/Projects/motion_camera/logs/security_camera.log"
-# class upload_thread(Thread):
-#     def __init__(self, img_path_q):
-#         Thread.__init__(self)
-#         self.file_paths_q = img_path_q      # This might be a problem (loose reference when assign)
-#
-#     def run(self):
-#         while True:
-#             if not self.file_paths_q.empty():
-#                 curr_image = self.file_paths_q.get()
-#                 GDrive.add_file(curr_image, "PIRSecurity_Pictures")
-#
-#             sleep(.5)
 
 
-def upload_thread(image_path, image_q):
+def error_logging_dec(func_name):
+    def real_dec(func):
+        def wrapper(**kwargs):
+            try:
+                func(**kwargs)
+            except Exception as e:
+                tb = traceback.format_exc()
+                logging.error("Exception Occurred on {}: {}".format(func_name, e))
+                logging.error("Traceback Info: \n{}".format(tb))
+        return wrapper
+    return real_dec
+
+
+@error_logging_dec("Upload Thread")
+def upload_thread(**kwargs):
     while True:
-        if not image_q.empty():
-            i = image_q.get()
+        if not kwargs["img_q"].empty():       # There's confusion here as to where "image_q" came from before kwargs was implemented
+            i = kwargs["img_q"].get()
             logging.info("Uploading image from path: {}".format(i))
             GDrive.add_file(i, "MotionCameraPictures")
             logging.info("Upload {} complete!".format(i))
@@ -37,9 +40,11 @@ def upload_thread(image_path, image_q):
             sleep(.25)
 
 
-def camera_thread(img_path, img_q):
-    c = CVMotionCamrea(img_path, 75)
-    c.run(image_q)
+@error_logging_dec("Camera Thread")
+def camera_thread(**kwargs):
+    c = CVMotionCamrea(kwargs["img_path"], 200)
+    c.run(image_q)  # This is using the global scoped image_q
+    # c.run(kwargs["img_q"])  # This is using the keyword args given via function call
 
 if __name__ == "__main__":
 #     arg_parser = argparse.ArgumentParser()
@@ -72,13 +77,13 @@ if __name__ == "__main__":
 
     logging.debug("GDrive Thread Starting...")
     # Create GDrive thread
-    t = Thread(target=upload_thread, args=(image_path, image_q))
+    t = Thread(target=upload_thread, kwargs={"img_path": image_path, "img_q": image_q})
     threads.append(t)
     t.start()
 
     logging.debug("Camera Thread Starting...")
     # Create Camera thread
-    t = Thread(target=camera_thread, args=(image_path, image_q))
+    t = Thread(target=camera_thread, kwargs={"img_path": image_path, "img_q": image_q})
     threads.append(t)
     t.start()
 

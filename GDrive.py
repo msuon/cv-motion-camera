@@ -11,6 +11,11 @@ from googleapiclient.http import MediaFileUpload
 from oauth2client.file import Storage
 
 from apiclient import discovery
+import logging
+
+# Logging setup
+log_path = "/home/msuon/Projects/motion_camera/logs/gdrive.log"
+logging.basicConfig(filename=log_path, level=logging.DEBUG, format='[%(asctime)s]%(levelname)s: %(message)s')
 
 # Give the client ecret file path for requesting token
 CLIENT_SECRET_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "client_secret.json")
@@ -54,7 +59,7 @@ def get_credentials():
             credentials = tools.run_flow(flow, store, flags)
         else: # Needed only for compatibility with Python 2.6
             credentials = tools.run(flow, store)
-        print('Storing credentials to ' + credential_path)
+        logging.info('Storing credentials to ' + credential_path)
     return credentials
 
 def get_drive_service():
@@ -88,13 +93,13 @@ def find_file(file_name, parents=None, before_date=None, after_date=None):
                 parent_id = find_file(parents)[0]["id"]
             query_list.append(google_query("parents", "in", parent_id))
     except TypeError:
-        print("No parent \"{}\" found".format(parents))
+        logging.info("No parent \"{}\" found".format(parents))
         return 0
 
     # Join the queries
     s = " and "
     query_str = s.join(["{} {} '{}'".format(x.field, x.operator, x.value) for x in query_list])
-    print(query_str)
+    logging.info(query_str)
         # query_str.j
         # query_list += "and {} {} {}".format(each.field, each.operator, each.value)
 
@@ -106,7 +111,7 @@ def find_file(file_name, parents=None, before_date=None, after_date=None):
 
     items = result.get('files', [])
     if not items:
-        print('No folder/files of name {} found.'.format(file_name))
+        logging.info('No folder/files of name {} found.'.format(file_name))
         return None
     else:
         return items
@@ -121,7 +126,7 @@ def add_folder(folder_name):
     }
     f = drive_service.files().create(body=folder_meta,
                                     fields='id').execute()
-    print("Created folder {} with ID {}".format(f.get('name'), f.get('id')))
+    logging.info("Created folder {} with ID {}".format(f.get('name'), f.get('id')))
     return f.get('id')
 
 def add_file(local_path, remote_folder="root"):
@@ -136,7 +141,7 @@ def add_file(local_path, remote_folder="root"):
         try:
             folder_id = find_file(remote_folder)[0]["id"]
         except TypeError:
-            print("Could not find parent folder {}, creating a folder".format(remote_folder))
+            logging.info("Could not find parent folder {}, creating a folder".format(remote_folder))
             folder_id = add_folder(remote_folder)
 
         file_meta = {
@@ -148,15 +153,15 @@ def add_file(local_path, remote_folder="root"):
             'name': os.path.basename(local_path)
         }
 
-    print(file_meta)
+    logging.info(file_meta)
     request = drive_service.files().create(media_body=media, body=file_meta)
     response = None
 
     while response is None:
        status, response = request.next_chunk()
        if status:
-           print("Uploaded %d%%." % int(status.progress() * 100))
-    print("Upload Complete!")
+           logging.info("Uploaded %d%%." % int(status.progress() * 100))
+    logging.info("Upload Complete!")
 
 
 def remove_file(fileName, parentName=None):
@@ -164,10 +169,10 @@ def remove_file(fileName, parentName=None):
 
     drive_service = get_drive_service()
     file_id = find_file(fileName, parentName)[0]["id"]
-    print("Removing file {} with id {}...".format(fileName, file_id))
+    logging.info("Removing file {} with id {}...".format(fileName, file_id))
     drive_service.files().delete(fileId=file_id).execute()
 
 def list_file():
     drive_service = get_drive_service()
     results = drive_service.files().list().execute()
-    pprint.pprint(results.get('files', []))
+    logging.debug(results.get('files', []))

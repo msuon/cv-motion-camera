@@ -46,7 +46,7 @@ class CVMotionCamrea():
             frame_diff = cv2.absdiff(self.prev_frame, frame)
             self.prev_frame = frame
 
-            processed_diff = cv2.threshold(frame_diff,75, 255, cv2.THRESH_BINARY)[1]
+            processed_diff = cv2.threshold(frame_diff,25, 255, cv2.THRESH_BINARY)[1]
             processed_diff = cv2.dilate(processed_diff, None, iterations=2)
             (_,contours,_) = cv2.findContours(processed_diff.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
