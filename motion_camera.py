@@ -14,7 +14,6 @@ log_path = "./logs/motion_camera.log"
 class CVMotionCamrea():
     def __init__(self, image_path, pixel_delta_threshold,pixel_sample_size=500, dev_mode=False):
         logging.basicConfig(filename=log_path, level=logging.DEBUG, format='[%(asctime)s]%(levelname)s: %(message)s')
-        logging.debug("Initializing Motion Camera...")
         self.image_path = image_path
         self.pixel_sample_size = pixel_sample_size
         self.pixel_delta_threshold = pixel_delta_threshold
@@ -39,7 +38,6 @@ class CVMotionCamrea():
         return self.camera_output.array
 
     def run(self, image_path_queue):
-        logging.info("Starting Motion Camera...")
         while True:
             image = self._take_image()
             frame = self._bw_process_image(image, self.pixel_sample_size)
@@ -61,6 +59,13 @@ class CVMotionCamrea():
                     image_name = "CVImage_{}.jpg".format(datetime.datetime.now().strftime("%m-%d-%Y_%H-%M-%S.%f"))
                     logging.debug("Motion Detected! Image at: {}".format(image_name))
                     full_path = os.path.join(self.image_path, image_name)
+                    # Write text to image
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    botLeftCorner = (10, 50)
+                    fontScale = 1
+                    fontColor = (255, 255, 255)
+                    lineType = 2
+                    cv2.putText(image, str(cv2.contourArea(c)), botLeftCorner, font, fontScale, fontColor, lineType)
                     cv2.imwrite(full_path, image)
                     image_path_queue.put(full_path)
 
