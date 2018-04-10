@@ -43,7 +43,7 @@ def upload_thread(**kwargs):
 @error_logging_dec("Camera Thread")
 def camera_thread(**kwargs):
     logging.debug("Initializing Motion Camera...")
-    c = CVMotionCamrea(kwargs["img_path"], 1000)
+    c = CVMotionCamrea(kwargs["img_path"], 2500)
     logging.debug("Motion Camera Ready!")
     c.run(image_q)  # This is using the global scoped image_q
     # c.run(kwargs["img_q"])  # This is using the keyword args given via function call
