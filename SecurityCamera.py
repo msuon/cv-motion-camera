@@ -67,17 +67,6 @@ if __name__ == "__main__":
     if not os.path.isdir(os.path.dirname(image_path)):
         os.mkdir(os.path.dirname(image_path))
 
-    # Creating pid file for duplication instance avoidance
-    pid = str(os.getpid())
-    pidfile = "/tmp/SecurityCamera.pid"
-
-    # If path exists program is already running otherwise write pid file
-    if os.path.isfile(pidfile):
-        logging.info("Program already running exiting this process...")
-        sys.exit()
-    with open(pidfile, "w") as f:
-        f.write(pid)
-
     logging.debug("GDrive Thread Starting...")
     # Create GDrive thread
     t = Thread(target=upload_thread, kwargs={"img_path": image_path, "img_q": image_q})
@@ -93,22 +82,5 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
-    logging.debug("Removing PID File...")
-    subprocess.call(["rm {}".format(pidfile)], shell=True)
     logging.warning("Program exiting...")
-
-    # # Main Loop. Motion cam will run for ever motion_cam = CVMotionCamrea(args.image_path, 100, dev_mode=True)
-    # try:
-    #     motion_cam.run(image_q)
-    # finally:
-    #     # When program comes to end, remove pid file so running lock is released
-    #     subprocess.call(["rm {}".format(pidfile)], shell=True)
-    #     # Join all threads before completely exiting
-    #     for t in threads:
-    #         t.join()
-
-
-# Concerns:
-# Multiple imports errors
-# Reference lost due to variable assignment:w
 
