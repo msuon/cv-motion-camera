@@ -1,14 +1,12 @@
 #! /usr/bin/env python3
 import os
-import sys
 import queue
 import logging
 import GDrive
-import argparse
 import traceback
 import subprocess
 from time import sleep
-from threading import Thread
+import threading
 from motion_camera import CVMotionCamrea
 
 log_path = "/home/msuon/Projects/motion_camera/logs/security_camera.log"
@@ -18,7 +16,7 @@ def error_logging_dec(func_name):
     def real_dec(func):
         def wrapper(**kwargs):
             try:
-                func(**kwargs)
+                return func(**kwargs)
             except Exception as e:
                 tb = traceback.format_exc()
                 logging.error("Exception Occurred on {}: {}".format(func_name, e))
@@ -27,60 +25,82 @@ def error_logging_dec(func_name):
     return real_dec
 
 
-@error_logging_dec("Upload Thread")
-def upload_thread(**kwargs):
-    while True:
-        if not kwargs["img_q"].empty():       # There's confusion here as to where "image_q" came from before kwargs was implemented
-            i = kwargs["img_q"].get()
-            logging.info("Uploading image from path: {}".format(i))
-            GDrive.add_file(i, "MotionCameraPictures")
-            logging.info("Upload {} complete!".format(i))
-            logging.debug("Removing Pictures...")
-            subprocess.call(["rm {}".format(i)], shell=True)
+class UploadThread(threading.Thread):
+    def __init__(self, img_q):
+        threading.Thread.__init__(self)
+        self.q = img_q
+        self._terminate = threading.Event()
+        logging.debug("GDrive Thread Starting...")
 
-            sleep(.25)
+    def terminate(self):
+        self._terminate.set()
+
+    def run(self):
+        logging.debug("Upload Thread Ready!")
+        try:
+            while not self._terminate.is_set():
+                if not self.q.empty():
+                    i = self.q.get()
+                    logging.info("Uploading image from path: {}".format(i))
+                    GDrive.add_file(i, "MotionCameraPictures")
+                    logging.info("Upload {} complete!".format(i))
+                    logging.debug("Removing Pictures...")
+                    subprocess.call(["rm {}".format(i)], shell=True)
+                    sleep(.25)
+            logging.warning("GDrive Thread Exiting!!!")
+        except Exception as e:
+            logging.debug("Upload Thread Exiting because of exception: " + e.message)
 
 
-@error_logging_dec("Camera Thread")
-def camera_thread(**kwargs):
-    logging.debug("Initializing Motion Camera...")
-    c = CVMotionCamrea(kwargs["img_path"], 2500)
-    logging.debug("Motion Camera Ready!")
-    c.run(image_q)  # This is using the global scoped image_q
-    # c.run(kwargs["img_q"])  # This is using the keyword args given via function call
+@error_logging_dec("Cleanup Function")
+def cleanup_threads(**kwargs):
+    for tr in kwargs["thread_list"]:
+        if tr.isAlive():
+            tr.terminate()
+            tr.join()
+
+@error_logging_dec("Main Thread Child Checking")
+def child_thread_alive(**kwargs):
+    for tr in kwargs["thread_list"]:
+        if not tr.isAlive():
+            return False
+    sleep(1)
+    return True
+
 
 if __name__ == "__main__":
-#     arg_parser = argparse.ArgumentParser()
-#     arg_parser.add_argument("image_path", help="Path where images taken will be stored")
-#     args = arg_parser.parse_args()
-    
-    image_path = "/home/msuon/Projects/motion_camera/images"
-    # Initialize Logging
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, format='[%(asctime)s]%(levelname)s: %(message)s')
-    logging.debug("Initializing Security Camera...")
+    try:
+        image_path = "/home/msuon/Projects/motion_camera/images"
+        # Initialize Logging
+        logging.basicConfig(filename=log_path, level=logging.DEBUG, format='{}[%(asctime)s]%(levelname)s: %(message)s')
+        logging.debug("Initializing Security Camera...")
 
-    # Create Globals
-    image_q = queue.Queue()
-    threads = []
+        # Create Globals
+        image_q = queue.Queue()
+        threads = []
 
-    # Check that image path exists
-    if not os.path.isdir(os.path.dirname(image_path)):
-        os.mkdir(os.path.dirname(image_path))
+        # Check that image path exists
+        if not os.path.isdir(os.path.dirname(image_path)):
+            os.mkdir(os.path.dirname(image_path))
 
-    logging.debug("GDrive Thread Starting...")
-    # Create GDrive thread
-    t = Thread(target=upload_thread, kwargs={"img_path": image_path, "img_q": image_q})
-    threads.append(t)
-    t.start()
+        # Create GDrive thread
+        t = UploadThread(image_q)
+        threads.append(t)
+        t.start()
 
-    logging.debug("Camera Thread Starting...")
-    # Create Camera thread
-    t = Thread(target=camera_thread, kwargs={"img_path": image_path, "img_q": image_q})
-    threads.append(t)
-    t.start()
+        # Create Camera thread
+        t = CVMotionCamrea(image_path, 2500, image_q)
+        threads.append(t)
+        t.start()
 
-    for t in threads:
-        t.join()
+        # Stability: Loop until one thread is dead
+        while child_thread_alive(thread_list=threads):
+            pass
 
-    logging.warning("Program exiting...")
+        cleanup_threads(thread_list=threads)
+
+        logging.warning("Program exiting...")
+    except KeyboardInterrupt as e:
+        logging.warning("KeyboardInterrupt Detected! Cleaning up...")
+        cleanup_threads(thread_list=threads)
 
