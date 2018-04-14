@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 import os
+import sys
 import queue
+import signal
 import logging
 import GDrive
 import traceback
@@ -54,7 +56,7 @@ class UploadThread(threading.Thread):
 
 @error_logging_dec("Cleanup Function")
 def cleanup_threads(**kwargs):
-    for tr in kwargs["thread_list"]:
+    for tr in threads:
         if tr.isAlive():
             tr.terminate()
             tr.join()
@@ -67,40 +69,43 @@ def child_thread_alive(**kwargs):
     sleep(1)
     return True
 
+def handle_signals(signal, frame):
+    cleanup_threads()
+    logging.warning("Program Exiting: SIGNAL")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, handle_signals)
+signal.signal(signal.SIGTERM, handle_signals)
 
 if __name__ == "__main__":
-    try:
-        image_path = "/home/msuon/Projects/motion_camera/images"
-        # Initialize Logging
-        logging.basicConfig(filename=log_path, level=logging.DEBUG, format='{}[%(asctime)s]%(levelname)s: %(message)s')
-        logging.debug("Initializing Security Camera...")
+    image_path = "/home/msuon/Projects/motion_camera/images"
+    # Initialize Logging
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, format='{}[%(asctime)s]%(levelname)s: %(message)s')
+    logging.debug("Initializing Security Camera...")
 
-        # Create Globals
-        image_q = queue.Queue()
-        threads = []
+    # Create Globals
+    image_q = queue.Queue()
+    threads = []
 
-        # Check that image path exists
-        if not os.path.isdir(os.path.dirname(image_path)):
-            os.mkdir(os.path.dirname(image_path))
+    # Check that image path exists
+    if not os.path.isdir(os.path.dirname(image_path)):
+        os.mkdir(os.path.dirname(image_path))
 
-        # Create GDrive thread
-        t = UploadThread(image_q)
-        threads.append(t)
-        t.start()
+    # Create GDrive thread
+    t = UploadThread(image_q)
+    threads.append(t)
+    t.start()
 
-        # Create Camera thread
-        t = CVMotionCamrea(image_path, 2500, image_q)
-        threads.append(t)
-        t.start()
+    # Create Camera thread
+    t = CVMotionCamrea(image_path, 2500, image_q)
+    threads.append(t)
+    t.start()
 
-        # Stability: Loop until one thread is dead
-        while child_thread_alive(thread_list=threads):
-            pass
+    # Stability: Loop until one thread is dead
+    while child_thread_alive(thread_list=threads):
+        pass
 
-        cleanup_threads(thread_list=threads)
-
-        logging.warning("Program exiting...")
-    except KeyboardInterrupt as e:
-        logging.warning("KeyboardInterrupt Detected! Cleaning up...")
-        cleanup_threads(thread_list=threads)
+    cleanup_threads(thread_list=threads)
+    logging.warning("Program Exiting: Child Termination")
 
