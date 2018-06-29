@@ -73,6 +73,7 @@ def handle_signals(signal, frame):
     cleanup_threads()
     logging.warning("Program Exiting: SIGNAL")
     sys.exit(0)
+    # Todo: exit code isn't triggering restart.
 
 
 signal.signal(signal.SIGINT, handle_signals)

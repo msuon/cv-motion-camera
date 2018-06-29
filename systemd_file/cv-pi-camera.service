@@ -1,0 +1,12 @@
+[Unit]
+Description=Computer Vision Motion Detecting Pi Security Camera
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /home/msuon/Projects/motion_camera/SecurityCamera.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
