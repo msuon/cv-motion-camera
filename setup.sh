@@ -20,6 +20,10 @@ fi
 apt-get clean -y
 apt-get autoremove -y
 
+echo "==========INSTALLING Python3 PIP=========="
+apt-get install python3-pip -y
+
+
 echo "==========INSTALLING VIM=========="
 dpkg-query -s vim
 if [ $? = 0 ] 
@@ -34,6 +38,8 @@ echo "==========Upgrading apt-get=========="
 apt-get update -y
 apt-get upgrade -y 
 
+echo "==========Installing PiCamera Module=========="
+pip3 install picamera -y
 
 echo "==========Installing GDrive API=========="
 pip3 install --upgrade google-api-python-client
