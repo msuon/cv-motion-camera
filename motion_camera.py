@@ -23,6 +23,8 @@ class CVMotionCamrea(threading.Thread):
         self.dev_mode = dev_mode
         self.camera = PiCamera()
         self.camera.rotation = 180
+        self.camera.exposure_mode = "sports"
+        self.camera.resolution = (1280, 720)
         self.camera_output = PiRGBArray(self.camera)
         self.prev_frame = self._bw_process_image(self._take_image(), self.pixel_sample_size)
         self.stop = threading.Event()
